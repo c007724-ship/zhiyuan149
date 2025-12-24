@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="技能加油站">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2991/2991195.png">
+    
+    <title>影像技能加油站 - Creator Station</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        
+        :root { --accent: #6366f1; --fuel-blue: #0ea5e9; --base-font-size: 16px; }
+        html { font-size: var(--base-font-size); }
+        body { 
+            font-family: 'Inter', 'Noto Sans TC', sans-serif; 
+            background-color: #fcfcfc; color: #475569; 
+            min-height: 100vh; overflow: hidden; transition: font-size 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* --- 背景裝飾 --- */
+        .bg-decor { position: fixed; inset: 0; z-index: -1; background-image: radial-gradient(#e2e8f0 1.2px, transparent 1.2px); background-size: 32px 32px; opacity: 0.3; }
+        .glass-panel { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 35px; }
+        .m-card { border-radius: 28px; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); background: white; border: 1px solid #f1f5f9; position: relative; }
+
+        /* --- 響應式手機版設計 --- */
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .mobile-nav { display: flex !important; }
+            .main-content { padding: 1.5rem !important; padding-bottom: 100px !important; overflow-y: auto !important; height: 100vh; }
+            .ai-sidebar-area { display: none; }
+            .grid-cols-2 { grid-template-columns: 1fr !important; }
+            .glass-panel { border-radius: 25px; padding: 1.5rem !important; }
+            h2 { font-size: 1.5rem !important; }
+        }
+
+        .mobile-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 70px; background: white; border-top: 1px solid #eee; z-index: 100; justify-content: space-around; align-items: center; box-shadow: 0 -5px 20px rgba(0,0,0,0.05); }
+        .mobile-nav button { color: #94a3b8; font-size: 1.2rem; display: flex; flex-direction: column; align-items: center; font-size: 0.6rem; gap: 4px; }
+        .mobile-nav button.active { color: var(--fuel-blue); font-weight: bold; }
+        .mobile-nav i { font-size: 1.2rem; }
+
+        /* 自定義彈窗 */
+        #custom-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.15); backdrop-filter: blur(10px); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .custom-modal { background: white; width: 90%; max-width: 400px; border-radius: 35px; padding: 2rem; box-shadow: 0 30px 60px -10px rgba(0,0,0,0.15); }
+
+        .nav-btn.active { background: white; color: var(--fuel-blue); font-weight: 700; box-shadow: 0 10px 25px rgba(14, 165, 233, 0.08); }
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .expand-wrapper { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
+        .expand-wrapper.active { max-height: 5000px; }
+
+        .del-img-btn { position: absolute; top: 8px; right: 8px; background: white; width: 26px; height: 26px; border-radius: 50%; color: #ef4444; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; cursor: pointer; border: 1px solid #f1f5f9; }
+        .group:hover .del-img-btn { opacity: 1; }
+
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-runnable-track { background: #e2e8f0; height: 4px; border-radius: 10px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; background: var(--fuel-blue); border-radius: 50%; margin-top: -6px; border: 2px solid white; }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen">
+
+    <div class="bg-decor"></div>
+
+    <!-- 自定義彈窗 -->
+    <div id="custom-modal-overlay">
+        <div class="custom-modal">
+            <h3 id="modal-title" class="text-xl font-bold text-slate-800 mb-2">標題</h3>
+            <p id="modal-desc" class="text-sm text-slate-400 mb-6"></p>
+            <div id="modal-input-area" class="hidden mb-6">
+                <input id="modal-input" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm outline-none focus:ring-2 focus:ring-indigo-100">
+            </div>
+            <div class="flex gap-4">
+                <button onclick="closeModal()" class="flex-1 py-4 rounded-2xl bg-slate-100 text-slate-500 font-bold text-xs">取消</button>
+                <button id="modal-confirm-btn" class="flex-1 py-4 rounded-2xl bg-slate-800 text-white font-bold text-xs shadow-lg">確認</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 左側導覽 (電腦版) -->
+    <aside class="sidebar w-64 bg-slate-50/40 border-r border-slate-200 flex flex-col p-8 z-10 shrink-0">
+        <div class="mb-12 px-2">
+            <h1 class="text-lg font-bold tracking-tighter text-slate-800 leading-tight">影像技能<br><span class="text-sky-500">加油站</span></h1>
+            <p class="text-[9px] text-slate-400 tracking-[0.4em] font-bold mt-2 uppercase">v29 PRO</p>
+        </div>
+        <nav class="space-y-1 flex-1 text-sm font-medium">
+            <button onclick="switchView('project')" id="nav-project" class="nav-btn active w-full flex items-center p-3.5 rounded-2xl transition text-slate-500"><i class="fas fa-layer-group w-8"></i>專案</button>
+            <button onclick="switchView('timer')" id="nav-timer" class="nav-btn w-full flex items-center p-3.5 rounded-2xl transition text-slate-500"><i class="fas fa-bolt w-8"></i>效能</button>
+            <button onclick="switchView('learning')" id="nav-learning" class="nav-btn w-full flex items-center p-3.5 rounded-2xl transition text-slate-500"><i class="fas fa-book-open w-8"></i>補給</button>
+            <button onclick="switchView('analysis')" id="nav-analysis" class="nav-btn w-full flex items-center p-3.5 rounded-2xl transition text-slate-500"><i class="fas fa-film w-8"></i>拆解</button>
+            <button onclick="switchView('quick')" id="nav-quick" class="nav-btn w-full flex items-center p-3.5 rounded-2xl transition text-slate-500"><i class="fas fa-sticky-note w-8"></i>隨手</button>
+            <button onclick="switchView('assets')" id="nav-assets" class="nav-btn w-full flex items-center p-3.5 rounded-2xl transition text-slate-500"><i class="fas fa-archive w-8"></i>素材</button>
+        </nav>
+    </aside>
+
+    <!-- 手機版底欄導覽 -->
+    <nav class="mobile-nav">
+        <button onclick="switchView('project')" id="m-nav-project" class="active"><i class="fas fa-layer-group"></i>專案</button>
+        <button onclick="switchView('timer')" id="m-nav-timer"><i class="fas fa-bolt"></i>效能</button>
+        <button onclick="switchView('learning')" id="m-nav-learning"><i class="fas fa-book-open"></i>補給</button>
+        <button onclick="switchView('analysis')" id="m-nav-analysis"><i class="fas fa-film"></i>拆解</button>
+        <button onclick="switchView('quick')" id="m-nav-quick"><i class="fas fa-sticky-note"></i>隨手</button>
+    </nav>
+
+    <!-- 中間作業區 -->
+    <main class="main-content flex-1 overflow-y-auto p-12 relative z-0">
+        <!-- 1. 專案 -->
+        <section id="view-project" class="view-section active">
+            <header class="flex justify-between items-center mb-10">
+                <h2 class="text-3xl font-bold">專案筆記</h2>
+                <div id="project-tabs" class="flex flex-wrap gap-2"></div>
+            </header>
+            <div class="grid grid-cols-2 gap-10 mb-10">
+                <div class="glass-panel p-8 bg-sky-50/50">
+                    <h4 class="font-bold text-sky-600 mb-4 text-xs">FIX LIST</h4>
+                    <textarea id="proj-fixed" oninput="saveDataGlobal()" class="w-full bg-white/70 h-64 rounded-2xl p-6 outline-none border-none resize-none"></textarea>
+                </div>
+                <div class="glass-panel p-8 bg-rose-50/50">
+                    <h4 class="font-bold text-rose-600 mb-4 text-xs">REVIEW</h4>
+                    <textarea id="proj-review" oninput="saveDataGlobal()" class="w-full bg-white/70 h-64 rounded-2xl p-6 outline-none border-none resize-none"></textarea>
+                </div>
+            </div>
+            <div class="glass-panel p-8 bg-white">
+                <h4 class="text-[10px] font-bold text-slate-400 mb-6">參考影片</h4>
+                <div id="proj-yt-grid" class="grid grid-cols-4 gap-4 mb-8"></div>
+                <div class="flex gap-4"><input id="proj-yt-input" type="text" placeholder="YouTube 連結" class="flex-1 px-4 py-3 rounded-xl bg-slate-50 text-sm outline-none"><button onclick="addVideoToProj()" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg">新增</button></div>
+            </div>
+        </section>
+
+        <!-- 2. 效能 -->
+        <section id="view-timer" class="view-section">
+            <h2 class="text-3xl font-bold mb-10">效能看板</h2>
+            <div id="timer-stats" class="grid grid-cols-5 gap-4 mb-10"></div>
+            <div class="glass-panel p-8 mb-10">
+                <div class="grid grid-cols-4 gap-4">
+                    <input id="t-name" list="proj-dl" placeholder="專案名" class="bg-slate-50 p-4 rounded-xl outline-none"><datalist id="proj-dl"></datalist>
+                    <select id="t-type" class="bg-slate-50 p-4 rounded-xl outline-none"><option value="1">架構撰寫</option><option value="2">素材整理</option><option value="3">順剪</option><option value="4">精剪</option></select>
+                    <input id="t-hr" type="number" placeholder="小時" class="bg-slate-50 p-4 rounded-xl outline-none">
+                    <button onclick="saveLog()" class="bg-slate-800 text-white rounded-xl font-bold">紀錄</button>
+                </div>
+            </div>
+            <div id="grouped-timer" class="space-y-6"></div>
+        </section>
+
+        <!-- 3. 補給 (學習筆記) -->
+        <section id="view-learning" class="view-section">
+            <div class="flex justify-between items-center mb-10">
+                <h2 class="text-3xl font-bold">補給庫</h2>
+                <button onclick="addLearnCat()" class="bg-indigo-600 text-white px-6 py-2 rounded-full font-bold">+ 新增分類</button>
+            </div>
+            <div id="learn-container" class="space-y-6"></div>
+        </section>
+
+        <!-- 4. 拆解 (分析牆) -->
+        <section id="view-analysis" class="view-section">
+            <div id="ana-main">
+                <div class="flex justify-between items-center mb-10">
+                    <h2 class="text-3xl font-bold">拆解中心</h2>
+                    <div class="flex gap-2"><input id="ana-yt-input" type="text" placeholder="YouTube 網址" class="px-4 py-2 rounded-xl bg-white border outline-none"><button onclick="addAnalysis()" class="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg">抓取</button></div>
+                </div>
+                <div id="ana-grid" class="grid grid-cols-3 gap-8"></div>
+            </div>
+            <div id="ana-detail" class="hidden">
+                <button onclick="closeAna()" class="mb-10 text-indigo-500 font-bold"><i class="fas fa-arrow-left mr-2"></i>返回牆面</button>
+                <div id="ana-content-area" class="space-y-10"></div>
+            </div>
+        </section>
+
+        <!-- 5. 隨手 -->
+        <section id="view-quick" class="view-section">
+            <div class="flex justify-between items-center mb-12"><h2 class="text-3xl font-bold">隨手記</h2><button onclick="addStickyNote()" class="bg-amber-400 text-amber-900 px-8 py-3 rounded-full font-bold shadow-lg">+ 貼上靈感</button></div>
+            <div id="sticky-grid" class="grid grid-cols-4 gap-8"></div>
+        </section>
+
+        <!-- 6. 素材 -->
+        <section id="view-assets" class="view-section">
+            <div class="flex justify-between items-center mb-10"><h2 class="text-3xl font-bold">素材整備</h2><button onclick="addAsset()" class="bg-emerald-600 text-white px-8 py-3 rounded-full font-bold shadow-lg">+ 貼上連結</button></div>
+            <div id="asset-list" class="space-y-8"></div>
+        </section>
+    </main>
+
+    <!-- 右側小幫手 (電腦/平板) -->
+    <aside class="ai-sidebar-area w-80 flex flex-col z-10 shrink-0">
+        <div class="ai-sidebar-v28 flex-1 flex flex-col m-4 p-8 glass-panel">
+            <div class="flex items-center gap-2 mb-8"><div class="ai-status-dot"></div><span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">System Ready</span></div>
+            <h3 class="text-sm font-bold text-slate-800 mb-2">加油站助理</h3>
+            <div id="ai-chat" class="flex-1 overflow-y-auto space-y-4 mb-8 text-[0.7rem] text-slate-400 italic leading-relaxed">
+                <div class="p-4 bg-slate-50/50 rounded-2xl border">店長好！所有按鈕功能已重新檢查並鎖定。</div>
+            </div>
+            <div class="space-y-4 mt-auto">
+                <div class="bg-slate-50/50 rounded-2xl p-4 border mb-4">
+                    <div class="flex justify-between items-center mb-2"><span class="text-[10px] font-bold text-slate-500">縮放比例</span><span id="font-size-val" class="text-[10px] font-mono font-bold text-indigo-500">100%</span></div>
+                    <input type="range" min="80" max="130" value="100" class="w-full" oninput="adjustFontSize(this.value)">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="exportData()" class="py-2.5 bg-slate-800 text-white rounded-2xl text-[9px] font-bold uppercase tracking-widest hover:bg-black transition shadow-md">匯出備份</button>
+                    <button onclick="document.getElementById('importFile').click()" class="py-2.5 bg-white border border-slate-200 text-slate-600 rounded-2xl text-[9px] font-bold uppercase tracking-widest hover:bg-slate-50 transition">匯入還原</button>
+                    <input type="file" id="importFile" class="hidden" accept=".json" onchange="importData(this)">
+                </div>
+                <div class="relative bg-white border border-slate-100 rounded-3xl p-4 shadow-sm">
+                    <textarea id="ai-msg" placeholder="輸入指令..." class="w-full bg-transparent text-xs outline-none h-16 resize-none leading-relaxed"></textarea>
+                    <button onclick="aiExecute()" class="absolute right-3 bottom-3 text-indigo-500 text-xl"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <script>
+        // --- 核心資料 ---
+        let state = JSON.parse(localStorage.getItem('studio_v21_data')) || {
+            projects: [{ id: 1, name: '預設專案', fixed: '', review: '', videos: [] }],
+            learning: [{ id: 101, name: '調色補給', items: [{ id: 1, title: '底片感', content: '', images: [], expanded: true }], expanded: true }],
+            stickyNotes: [], mediaAssets: [], analysis: [], timeLogs: [], curProjId: 1, globalFontSize: 100
+        };
+
+        const saveDataGlobal = () => localStorage.setItem('studio_v21_data', JSON.stringify(state));
+
+        // --- 自定義彈窗 ---
+        let modalCallback = null;
+        function openModal(title, desc, isPrompt, callback) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            const inputArea = document.getElementById('modal-input-area');
+            if(isPrompt) { inputArea.classList.remove('hidden'); document.getElementById('modal-input').value = ""; } 
+            else { inputArea.classList.add('hidden'); }
+            document.getElementById('custom-modal-overlay').style.display = 'flex';
+            modalCallback = callback;
+            document.getElementById('modal-confirm-btn').onclick = () => {
+                const val = isPrompt ? document.getElementById('modal-input').value : true;
+                if(modalCallback) modalCallback(val);
+                closeModal();
+            };
+        }
+        function closeModal() { document.getElementById('custom-modal-overlay').style.display = 'none'; modalCallback = null; }
+
+        // --- UI ---
+        function adjustFontSize(val) {
+            const size = val / 100 * 16;
+            document.documentElement.style.setProperty('--base-font-size', size + 'px');
+            document.getElementById('font-size-val').innerText = val + '%';
+            state.globalFontSize = val; saveDataGlobal();
+        }
+
+        function switchView(view) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.getElementById('view-' + view).classList.add('active');
+            // 更新選單按鈕
+            document.querySelectorAll('.nav-btn, .mobile-nav button').forEach(b => b.classList.remove('active'));
+            if(document.getElementById('nav-' + view)) document.getElementById('nav-' + view).classList.add('active');
+            if(document.getElementById('m-nav-' + view)) document.getElementById('m-nav-' + view).classList.add('active');
+            
+            // 重新渲染對應內容
+            if(view === 'project') renderProj();
+            if(view === 'timer') renderTimer();
+            if(view === 'learning') renderLearning();
+            if(view === 'analysis') renderAna();
+            if(view === 'quick') renderQuick();
+            if(view === 'assets') renderAssets();
+        }
+
+        // --- 1. 專案 ---
+        function renderProj() {
+            const tabs = document.getElementById('project-tabs');
+            tabs.innerHTML = state.projects.map(p => `
+                <div class="flex items-center bg-white border rounded-full px-4 py-1 shadow-sm">
+                    <button onclick="selectProj(${p.id})" class="text-xs font-bold ${p.id === state.curProjId ? 'text-sky-600' : 'text-slate-400'}">${p.name}</button>
+                    <button onclick="deleteProj(${p.id})" class="ml-2 text-red-300 text-[10px]"><i class="fas fa-times"></i></button>
+                </div>
+            `).join('') + `<button onclick="addProjManual()" class="text-indigo-400 font-bold ml-2">+</button>`;
+            const p = state.projects.find(proj => proj.id === state.curProjId) || state.projects[0];
+            document.getElementById('proj-fixed').value = p.fixed || '';
+            document.getElementById('proj-review').value = p.review || '';
+            renderProjYT(p);
+        }
+        function selectProj(id) { state.curProjId = id; renderProj(); }
+        function addProjManual() {
+            openModal("新增專案", "輸入名稱：", true, (n) => { if(n){state.projects.push({id:Date.now(), name:n, fixed:'', review:'', videos:[]}); state.curProjId = state.projects[state.projects.length-1].id; saveDataGlobal(); renderProj();} });
+        }
+        function deleteProj(id) {
+            if(state.projects.length <= 1) return;
+            openModal("刪除專案", "確定移除？", false, (c) => { if(c){state.projects = state.projects.filter(p => p.id !== id); state.curProjId = state.projects[0].id; saveDataGlobal(); renderProj();} });
+        }
+        function renderProjYT(p) {
+            document.getElementById('proj-yt-grid').innerHTML = (p.videos || []).map((v, i) => `
+                <div class="aspect-video rounded-2xl overflow-hidden shadow border group relative bg-slate-50">
+                    <a href="${v.url}" target="_blank" class="block w-full h-full"><img src="${v.thumb}" class="w-full h-full object-cover"></a>
+                    <button onclick="state.projects.find(x=>x.id===${p.id}).videos.splice(${i},1); renderProj(); saveDataGlobal();" class="absolute top-2 right-2 bg-white w-7 h-7 rounded-full text-red-500 shadow opacity-0 group-hover:opacity-100 transition"><i class="fas fa-times text-[10px]"></i></button>
+                </div>
+            `).join('');
+        }
+        function addVideoToProj() {
+            const url = document.getElementById('proj-yt-input').value;
+            const vid = url?.split('v=')[1]?.split('&')[0] || url?.split('/').pop();
+            if(!vid) return;
+            const p = state.projects.find(x => x.id === state.curProjId);
+            p.videos.push({ url, thumb: `https://img.youtube.com/vi/${vid}/mqdefault.jpg` });
+            document.getElementById('proj-yt-input').value = ""; renderProj(); saveDataGlobal();
+        }
+
+        // --- 2. 補給 (學習) ---
+        function renderLearning() {
+            const container = document.getElementById('learn-container');
+            container.innerHTML = state.learning.map((cat, cIdx) => `
+                <div class="glass-panel overflow-hidden relative border-l-8 border-indigo-400">
+                    <button onclick="deleteLearnCat(${cIdx})" class="absolute top-10 right-20 text-slate-200 hover:text-red-400"><i class="fas fa-trash-alt"></i></button>
+                    <div onclick="toggleCat(${cIdx})" class="p-10 flex justify-between items-center cursor-pointer">
+                        <input value="${cat.name}" onclick="event.stopPropagation()" oninput="state.learning[${cIdx}].name = this.value; saveDataGlobal();" class="text-2xl font-bold text-slate-700 bg-transparent outline-none flex-1">
+                        <i class="fas fa-chevron-down text-slate-200 transition-transform ${cat.expanded ? 'rotate-180' : ''}"></i>
+                    </div>
+                    <div class="expand-wrapper ${cat.expanded ? 'active' : ''} px-10 pb-10">
+                        <div class="space-y-6 pt-6 border-t border-slate-100">
+                            ${cat.items.map((item, iIdx) => `
+                                <div class="m-card overflow-hidden border border-slate-100 relative">
+                                    <div onclick="toggleItem(${cIdx}, ${iIdx})" class="p-8 flex justify-between items-center cursor-pointer">
+                                        <input value="${item.title}" onclick="event.stopPropagation()" oninput="state.learning[${cIdx}].items[${iIdx}].title = this.value; saveDataGlobal();" class="font-bold text-slate-500 text-lg bg-transparent outline-none flex-1">
+                                        <div class="flex items-center gap-6">
+                                            <button onclick="event.stopPropagation(); deleteLearnItem(${cIdx}, ${iIdx})" class="text-slate-200 hover:text-red-400"><i class="fas fa-trash-alt"></i></button>
+                                            <i class="fas fa-plus text-slate-200 text-xs ${item.expanded ? 'fa-minus' : ''}"></i>
+                                        </div>
+                                    </div>
+                                    <div class="expand-wrapper ${item.expanded ? 'active' : ''} px-10 pb-10">
+                                        <div class="grid grid-cols-1 gap-10 pt-4">
+                                            <textarea oninput="state.learning[${cIdx}].items[${iIdx}].content = this.value; saveDataGlobal();" class="w-full h-64 p-10 rounded-[3rem] bg-slate-50/50 outline-none resize-none leading-loose text-slate-600 shadow-inner">${item.content}</textarea>
+                                            <div class="space-y-6">
+                                                <div class="flex justify-between items-center"><h5 class="text-[10px] font-bold text-slate-300 uppercase">圖庫</h5><button onclick="document.getElementById('file-l-${cIdx}-${iIdx}').click()" class="text-indigo-500 text-[10px] font-bold underline">上傳</button></div>
+                                                <div class="grid grid-cols-3 gap-6">
+                                                    ${item.images.map((img, imgIdx) => `<div class="relative group aspect-video rounded-2xl overflow-hidden shadow-sm"><img src="${img}" class="w-full h-full object-cover"><button onclick="state.learning[${cIdx}].items[${iIdx}].images.splice(${imgIdx},1); renderLearning(); saveDataGlobal();" class="del-img-btn"><i class="fas fa-times"></i></button></div>`).join('')}
+                                                </div>
+                                                <input type="file" id="file-l-${cIdx}-${iIdx}" multiple onchange="uploadImg('l', ${cIdx}, ${iIdx}, this)" class="hidden">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            <button onclick="addLearnItem(${cIdx})" class="w-full p-8 border-2 border-dashed border-slate-100 rounded-[3rem] text-slate-300 font-bold hover:bg-white transition">+ 新增子項</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        function toggleCat(i) { state.learning[i].expanded = !state.learning[i].expanded; renderLearning(); }
+        function toggleItem(c, i) { state.learning[c].items[i].expanded = !state.learning[c].items[i].expanded; renderLearning(); }
+        function addLearnCat() { openModal("新增分類", "名稱：", true, (n) => { if(n){state.learning.push({id:Date.now(), name:n, items:[], expanded:true}); renderLearning(); saveDataGlobal();} }); }
+        function addLearnItem(cIdx) { state.learning[cIdx].items.push({id:Date.now(), title:'新子標題', content:'', images:[], expanded:true}); state.learning[cIdx].expanded=true; renderLearning(); saveDataGlobal(); }
+        function deleteLearnCat(i) { openModal("刪除分類", "確定移除？", false, (c) => { if(c){state.learning.splice(i,1); renderLearning(); saveDataGlobal();} }); }
+        function deleteLearnItem(c, i) { openModal("刪除項目", "確定移除？", false, (conf) => { if(conf){state.learning[c].items.splice(i,1); renderLearning(); saveDataGlobal();} }); }
+
+        // --- 3. 效能 (時間) ---
+        function renderTimer() {
+            const groups = state.timeLogs.reduce((acc, log) => {
+                if(!acc[log.name]) acc[log.name] = { total: 0, logs: [] };
+                acc[log.name].total += log.hr; acc[log.name].logs.push(log); return acc;
+            }, {});
+            let bestN = "--"; let maxH = 0;
+            for(let n in groups) { if(groups[n].total > maxH) { maxH = groups[n].total; bestN = n; } }
+            document.getElementById('timer-stats').innerHTML = `
+                <div class="glass-panel p-6 border-t-8 border-indigo-400"><p class="text-[10px] font-bold text-slate-300">效率王</p><h4 class="text-md font-bold truncate">${bestN}</h4></div>
+                ${[1,2,3,4].map(t => {
+                    const logs = state.timeLogs.filter(l => l.type == t);
+                    const max = logs.length > 0 ? Math.max(...logs.map(l => l.hr)) : 0;
+                    return `<div class="bg-white p-6 rounded-[2rem] border border-slate-100"><p class="text-[10px] font-bold text-slate-300">${["","架構","素材","順剪","精剪"][t]}</p><h4 class="text-xl font-bold font-mono text-indigo-400">${max}h</h4></div>`;
+                }).join('')}
+            `;
+            document.getElementById('grouped-timer').innerHTML = Object.entries(groups).map(([name, data]) => `
+                <div class="m-card overflow-hidden">
+                    <div class="bg-slate-50 px-10 py-5 flex justify-between items-center border-b"><span class="font-bold text-slate-700">${name}</span><span class="text-xs bg-indigo-500 text-white px-5 py-2 rounded-full font-bold">總計 ${data.total}h</span></div>
+                    <div class="p-8 space-y-3">
+                        ${data.logs.map((l, idx) => `<div class="flex justify-between items-center text-xs p-4 bg-white border rounded-2xl relative group">
+                            <span>${["","架構撰寫","素材整理","順剪","精剪"][l.type]}</span><span class="font-bold text-indigo-400 font-mono">${l.hr}h</span>
+                            <button onclick="deleteTimerLog('${name}', ${idx})" class="opacity-0 group-hover:opacity-100 text-red-300 ml-4"><i class="fas fa-trash"></i></button>
+                        </div>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+        function deleteTimerLog(name, groupIdx) {
+            const logsByName = state.timeLogs.filter(l => l.name === name);
+            const targetLog = logsByName[groupIdx];
+            state.timeLogs.splice(state.timeLogs.indexOf(targetLog), 1);
+            renderTimer(); saveDataGlobal();
+        }
+        function saveLog() {
+            const name = document.getElementById('t-name').value;
+            const type = document.getElementById('t-type').value;
+            const hr = parseFloat(document.getElementById('t-hr').value);
+            if(!name || isNaN(hr)) return;
+            state.timeLogs.push({ name, type, hr }); saveDataGlobal(); renderTimer();
+        }
+
+        // --- 4. 拆解 (分析牆) ---
+        async function addAnalysis() {
+            const url = document.getElementById('ana-yt-input').value;
+            const vid = url?.split('v=')[1]?.split('&')[0] || url?.split('/').pop();
+            if(!vid) return;
+            try {
+                const r = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${vid}`);
+                const d = await r.json();
+                state.analysis.push({ title: d.title || "影片補給", vid, segs: [], details: { frame:'', color:'', music:'', font:'' } });
+                document.getElementById('ana-yt-input').value = ""; saveDataGlobal(); renderAna();
+            } catch(e) { alert('失敗'); }
+        }
+        function renderAna() {
+            document.getElementById('ana-grid').innerHTML = state.analysis.map((a, i) => `
+                <div class="m-card overflow-hidden group border-slate-100 relative">
+                    <button onclick="event.stopPropagation(); deleteAna(${i});" class="absolute top-4 right-4 bg-white/90 w-10 h-10 rounded-full text-red-500 z-20 opacity-0 group-hover:opacity-100 transition shadow-sm"><i class="fas fa-trash-alt text-xs"></i></button>
+                    <div onclick="enterAna(${i})" class="cursor-pointer">
+                        <div class="aspect-video relative overflow-hidden"><img src="https://img.youtube.com/vi/${a.vid}/mqdefault.jpg" class="w-full h-full object-cover"></div>
+                        <div class="p-8 font-bold text-slate-700 text-sm truncate">${a.title}</div>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('ana-detail').classList.add('hidden');
+            document.getElementById('ana-grid').classList.remove('hidden');
+        }
+        function deleteAna(i) { openModal("刪除拆解", "確定移除？", false, (c) => { if(c){state.analysis.splice(i,1); renderAna(); saveDataGlobal();} }); }
+        function enterAna(idx) {
+            const a = state.analysis[idx]; state.curAnaIdx = idx;
+            document.getElementById('ana-grid').classList.add('hidden');
+            document.getElementById('ana-detail').classList.remove('hidden');
+            document.getElementById('ana-content-area').innerHTML = `
+                <div class="glass-panel p-16">
+                    <input value="${a.title}" oninput="state.analysis[${idx}].title=this.value; saveDataGlobal();" class="text-2xl font-bold mb-8 text-slate-800 bg-transparent outline-none w-full">
+                    <div class="aspect-video rounded-[3rem] overflow-hidden shadow-2xl mb-20"><iframe class="w-full h-full" src="https://www.youtube.com/embed/${a.vid}" frameborder="0" allowfullscreen></iframe></div>
+                    <div class="mb-24"><h4 class="font-bold text-indigo-500 mb-10 flex items-center text-xl tracking-widest"><i class="fas fa-stream mr-6"></i>STRUCTURE 拆解</h4><div id="ana-segs-box" class="space-y-4"></div><button onclick="state.analysis[${idx}].segs.push({time:'00:00',desc:''}); enterAna(${idx});" class="mt-10 text-xs bg-slate-50 px-10 py-4 rounded-full font-bold">+ 新增區段</button></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-12">${['frame','color','music','font'].map((k, vIdx) => `<div class="p-12 rounded-[4rem] bg-${['sky','rose','emerald','orange'][vIdx]}-50 border border-slate-100"><label class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-8 block italic">${["畫面","調色","音樂","字卡"][vIdx]}</label><textarea oninput="state.analysis[${idx}].details.${k}=this.value; saveDataGlobal();" class="w-full bg-white/70 h-64 rounded-[3rem] p-10 outline-none text-slate-700 shadow-inner">${a.details[k] || ''}</textarea></div>`).join('')}</div>
+                </div>
+            `;
+            document.getElementById('ana-segs-box').innerHTML = a.segs.map((s, i) => `
+                <div class="flex gap-6">
+                    <input class="w-32 bg-slate-50 border p-5 rounded-3xl text-xs font-mono" value="${s.time}" oninput="state.analysis[${idx}].segs[${i}].time=this.value; saveDataGlobal();">
+                    <input class="flex-1 bg-slate-50 border p-5 rounded-3xl text-xs" value="${s.desc}" oninput="state.analysis[${idx}].segs[${i}].desc=this.value; saveDataGlobal();">
+                    <button onclick="state.analysis[${idx}].segs.splice(${i},1); enterAna(${idx});" class="text-red-300"><i class="fas fa-minus-circle"></i></button>
+                </div>
+            `).join('');
+        }
+        function closeAna() { switchView('analysis'); }
+
+        // --- 5. 隨手記 ---
+        const COLORS = ['#fef9c3', '#fee2e2', '#dcfce7', '#e0f2fe', '#f5f3ff', '#ffedd5'];
+        function renderQuick() {
+            document.getElementById('sticky-grid').innerHTML = state.stickyNotes.map((n, i) => `
+                <div class="m-card p-10 min-h-[250px] relative shadow-sm" style="background: ${n.color || '#fef9c3'}">
+                    <textarea oninput="state.stickyNotes[${i}].content = this.value; saveDataGlobal();" class="w-full h-full bg-transparent border-none outline-none resize-none font-bold text-slate-700 text-sm">${n.content}</textarea>
+                    <button onclick="state.stickyNotes.splice(${i}, 1); renderQuick(); saveDataGlobal();" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times-circle text-xl"></i></button>
+                </div>
+            `).join('');
+        }
+        function addStickyNote() { state.stickyNotes.push({ id: Date.now(), content: '', color: COLORS[Math.floor(Math.random() * COLORS.length)] }); saveDataGlobal(); renderQuick(); }
+
+        // --- 6. 素材 ---
+        function renderAssets() {
+            const list = document.getElementById('asset-list');
+            list.innerHTML = state.mediaAssets.map((a, i) => `
+                <div class="glass-panel p-10 flex flex-col gap-10 relative">
+                    <button onclick="state.mediaAssets.splice(${i}, 1); renderAssets(); saveDataGlobal();" class="absolute top-10 right-10 text-slate-200"><i class="fas fa-trash-alt text-2xl"></i></button>
+                    <div class="flex flex-col md:flex-row gap-10">
+                        <div class="flex-1"><label class="text-[10px] font-bold text-slate-300 uppercase">連結</label><input oninput="state.mediaAssets[${i}].url = this.value; saveDataGlobal();" value="${a.url}" class="w-full bg-transparent border-b-2 py-4 outline-none text-sky-500 font-bold"></div>
+                        <div class="flex-[2]"><label class="text-[10px] font-bold text-slate-300 uppercase">說明</label><textarea oninput="state.mediaAssets[${i}].desc = this.value; saveDataGlobal();" class="w-full bg-transparent border-none py-4 outline-none h-24">${a.desc}</textarea></div>
+                    </div>
+                    <div class="border-t pt-10">
+                        <div class="flex justify-between items-center mb-6"><h5 class="text-[10px] font-bold text-slate-300 uppercase">視覺參考</h5><button onclick="document.getElementById('file-a-${i}').click()" class="text-sky-500 text-[10px] font-bold underline">上傳</button></div>
+                        <div class="grid grid-cols-6 gap-6">
+                            ${a.images.map((img, imgIdx) => `<div class="relative group aspect-video rounded-xl overflow-hidden shadow-sm"><img src="${img}" class="w-full h-full object-cover"><button onclick="state.mediaAssets[${i}].images.splice(${imgIdx},1); renderAssets(); saveDataGlobal();" class="del-img-btn"><i class="fas fa-times"></i></button></div>`).join('')}
+                        </div>
+                        <input type="file" id="file-a-${i}" multiple onchange="uploadImg('a', ${i}, 0, this)" class="hidden">
+                    </div>
+                </div>
+            `).join('');
+        }
+        function addAsset() { state.mediaAssets.push({ id: Date.now(), url: '', desc: '', images: [] }); saveDataGlobal(); renderAssets(); }
+
+        // --- 備份 & AI ---
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+            const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `加油站_${new Date().toLocaleDateString()}.json`); document.body.appendChild(dl); dl.click(); dl.remove();
+        }
+        function importData(input) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader(); reader.onload = (e) => {
+                try { state = JSON.parse(e.target.result); saveDataGlobal(); location.reload(); } catch (err) { alert("格式錯誤"); }
+            }; reader.readAsText(file);
+        }
+        function aiExecute() {
+            const msg = document.getElementById('ai-msg').value.trim(); if(!msg) return;
+            document.getElementById('ai-chat').innerHTML = `<div class="p-4 bg-indigo-500 text-white rounded-2xl text-right">${msg}</div>`;
+            setTimeout(() => { document.getElementById('ai-chat').innerHTML = `<div class="p-4 bg-slate-50 rounded-2xl italic">店長好，指令執行完畢！</div>`; }, 600);
+            document.getElementById('ai-msg').value = "";
+        }
+        function uploadImg(type, cIdx, iIdx, input) {
+            Array.from(input.files).forEach(f => {
+                const r = new FileReader(); r.onload = (e) => {
+                    const target = (type === 'l') ? state.learning[cIdx].items[iIdx].images : state.mediaAssets[cIdx].images;
+                    target.push(e.target.result); if(type==='l') renderLearning(); else renderAssets(); saveDataGlobal();
+                }; r.readAsDataURL(f);
+            });
+        }
+
+        // 初始化
+        window.onload = () => {
+            adjustFontSize(state.globalFontSize || 100);
+            switchView('project');
+        };
+    </script>
+</body>
+</html>
